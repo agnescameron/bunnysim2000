@@ -8,6 +8,12 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <pthread.h>
+#include <unistd.h>  /* UNIX standard function definitions */
+#include <fcntl.h>   /* File control definitions */
+#include <errno.h>   /* Error number definitions */
+#include <termios.h> /* POSIX terminal control definitions */
+#include <ctype.h>
+#include <math.h> 
 
 //escape code to clear terminals
 #define clear() printf("\033[H\033[J")
@@ -27,8 +33,10 @@ void printBunny(unsigned int pulses){
 
 	cout << endl << endl << endl;
 	
+	int speed = ceil(582200/(pulses-37800));
+
 	stringstream buf;
-	buf << "bunnysay speed is " << pulses;
+	buf << "bunnysay speed is " << speed;
 	system(buf.str().c_str());
 	//system("sleep 1");
 	while (getline(bunnyfile1, line))	
@@ -55,16 +63,56 @@ void printBunny(unsigned int pulses){
 
 }
 
-void getPulses(unsigned int &pulses){
+void processBuf(unsigned int &pulses, unsigned int &lastpulses, char buf[10]){
+
+	int num;
+
+	if(isdigit(buf[0])){
+			num = atoi(buf);
+			//cout << "num is " << num;
+	}
+
+	if (num < 50 || num > 1000){
+		pulses = lastpulses;		
+	}
+
+	else{
+		pulses = num*800;
+		lastpulses = pulses;
+	}
+
+}
+
+void getPulses(unsigned int &pulses, unsigned int &lastpulses, int fd){
  	
-	pulses = pulses - 10000;
+	char buf[10];
+
+		string response;
+		int n = read(fd, buf, sizeof buf);
+
+	if(n>0){
+		usleep(1000);
+		processBuf(pulses, lastpulses, buf);
+	}
+	
+    else{
+    	pulses = lastpulses;
+    }	
+
+
+	memset(buf, 0, sizeof buf);
+	//tcflush(fd, TCIOFLUSH);
 
  }
 
 void *getAndPrint(void *id){
-	unsigned int pulses = 1000000;
+	unsigned int pulses = 616000;
+	unsigned int lastpulses = 616000;
+
+	int fd = open("/dev/cu.usbmodem1411", O_RDWR | O_NOCTTY | O_NDELAY);
+
 	do{
-		getPulses(pulses);
+		getPulses(pulses, lastpulses, fd);
 
 		if(pulses <= 0){
 			throw "you can't have negative pulses!";
@@ -72,6 +120,8 @@ void *getAndPrint(void *id){
 
 		printBunny(pulses);
 	}while(true);
+
+    close(fd);
 
    pthread_exit(NULL);
 
@@ -94,13 +144,17 @@ void startup(string s){
 int main(){
 
 char quit = 'q';
-
-	system("bunnysay welcome to bunny servo simulator 2000");
-	system("sleep 2");
+	
+	cout << endl;
 	clear();
-
+	cout << endl;
+	system("bunnysay welcome to bunny resistor simulator 2000");
+	system("sleep 4");
+	cout << endl;
+	clear();
+	cout << endl;
 	system("bunnysay press enter to continue");	
-	system("sleep 2");
+	system("sleep 4");
 	clear();
 //cin enter to continue
 
